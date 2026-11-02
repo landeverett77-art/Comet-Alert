@@ -1,0 +1,635 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+/.vscode
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+*.jks
+*.keystore
+# Comet Alert
+
+Comet Alert is an Android app that scans for nearby Bluetooth beacons and warns the user when one is close.
+
+Features
+- GPS location tracking
+- Bluetooth LE scanning
+- OSMDroid map display
+- proximity-based audio alert
+- vibration alert
+- map markers for nearby beacons
+- stale target cleanup
+
+Requirements
+- Android Studio
+- JDK 17
+- Android SDK 34
+- Device or emulator
+
+Setup
+1. Open the project in Android Studio.
+2. Install Android SDK 34.
+3. Let Gradle sync.
+4. Run the app on a device or emulator.
+
+Release build
+1. Create a keystore:
+   ```bash
+   keytool -genkeypair -v \
+     -keystore app/release-key.jks \
+     -alias cometalert \
+     -keyalg RSA \
+     -keysize 2048 \
+     -validity 10000
+export KEYSTORE_PASSWORD=your_store_password
+export KEY_ALIAS=cometalert
+export KEY_PASSWORD=your_key_password
+./gradlew assembleRelease
+app/build/outputs/apk/release/app-release.apk
+
+3) build.gradle
+
+```gradle
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.5.2")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
+    }
+}
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "CometAlert"
+include(":app")
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+kotlin.code.style=official
+android.nonTransitiveRClass=true
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.example.cometalert"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.example.cometalert"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        release {
+            storeFile = file("release-key.jks")
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        debug {
+            isMinifyEnabled = false
+        }
+
+        release {
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        viewBinding = true
+    }
+}
+
+dependencies {
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.activity:activity-ktx:1.9.1")
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+}
+# No <?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:allowBackup="true"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+rules yet
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:allowBackup="true"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+package com.example.cometalert
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.LocationListener
+import android.location.LocationManager
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.view.Gravity
+import android.widget.FrameLayout
+import android.widget.TextView
+import androidx.core.content.ContextCompat
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.PI
+import kotlin.math.pow
+import kotlin.math.sin
+
+class MainActivity : Activity() {
+
+    private lateinit var map: MapView
+    private lateinit var status: TextView
+
+    private var me: GeoPoint? = null
+    private var started = false
+
+    private val targets = ConcurrentHashMap<String, Target>()
+    private val markers = HashMap<String, Marker>()
+    private var scanner: BluetoothLeScanner? = null
+    private var audio: ProximityAudio? = null
+    private var locationManager: LocationManager? = null
+    private var locationListener: LocationListener? = null
+    private val ui = Handler(Looper.getMainLooper())
+
+    data class Target(
+        val identity: String,
+        val rssi: Int,
+        val distance: Double,
+        val timestamp: Long,
+        val where: GeoPoint?
+    )
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        Configuration.getInstance().load(this, getSharedPreferences("osm", MODE_PRIVATE))
+        Configuration.getInstance().userAgentValue = packageName
+
+        map = MapView(this).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            controller.setZoom(17.0)
+        }
+
+        status = TextView(this).apply {
+            text = "Starting..."
+            setBackgroundColor(0xCC000000.toInt())
+            setTextColor(0xFF00FF00.toInt())
+            setPadding(32, 32, 32, 32)
+            textSize = 15f
+        }
+
+        setContentView(FrameLayout(this).apply {
+            addView(map)
+            addView(status, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
+        })
+
+        val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+        } else {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+
+        if (perms.all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) {
+            startApp()
+        } else {
+            requestPermissions(perms, 1)
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == 1 && grantResults.isNotEmpty() &&
+            grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+        ) {
+            startApp()
+        } else {
+            status.text = "Permissions needed (Bluetooth scan + location)"
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startApp() {
+        if (started) return
+        started = true
+
+        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        locationListener = LocationListener { loc ->
+            me = GeoPoint(loc.latitude, loc.longitude)
+            map.controller.animateTo(me)
+        }
+        locationManager?.requestLocationUpdates(
+            LocationManager.GPS_PROVIDER,
+            1000L,
+            0f,
+            locationListener!!
+        )
+
+        val manager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        scanner = manager.adapter?.bluetoothLeScanner
+        if (scanner == null) {
+            status.text = "Turn Bluetooth on, then reopen the app"
+            return
+        }
+
+        scanner?.startScan(
+            null,
+            ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build(),
+            scanCallback
+        )
+
+        audio = ProximityAudio().also { it.start() }
+        ui.post(refreshRunnable)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        map.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        map.onPause()
+        stopTracking()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopTracking()
+        ui.removeCallbacksAndMessages(null)
+    }
+
+    private fun stopTracking() {
+        locationListener?.let { ll ->
+            locationManager?.removeUpdates(ll)
+        }
+        locationListener = null
+        locationManager = null
+
+        scanner?.stopScan(scanCallback)
+        scanner = null
+
+        audio?.stop()
+        audio = null
+    }
+
+    private fun isTargetDevice(name: String, address: String): Boolean {
+        return name.contains("axon", true) || address.startsWith("00:25:DF", true)
+    }
+
+    private fun vibrate() {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(300)
+        }
+    }
+
+    private val scanCallback = object : ScanCallback() {
+        override fun onScanResult(type: Int, result: ScanResult) {
+            val name = result.scanRecord?.deviceName ?: ""
+            val address = result.device.address
+            if (!isTargetDevice(name, address)) return
+
+            val isNew = !targets.containsKey(address)
+            targets[address] = Target(
+                identity = "Axon device",
+                rssi = result.rssi,
+                distance = 10.0.pow((-59.0 - result.rssi) / 25.0),
+                timestamp = System.currentTimeMillis(),
+                where = me
+            )
+
+            if (isNew) {
+                ui.post { vibrate() }
+            }
+        }
+    }
+
+    private val refreshRunnable = object : Runnable {
+        override fun run() {
+            val now = System.currentTimeMillis()
+            var closest: Target? = null
+
+            val iterator = targets.entries.iterator()
+            while (iterator.hasNext()) {
+                val entry = iterator.next()
+                val target = entry.value
+                if (now - target.timestamp > 8000L) {
+                    iterator.remove()
+                    markers.remove(entry.key)?.let { marker ->
+                        map.overlays.remove(marker)
+                    }
+                    continue
+                }
+
+                if (closest == null || target.distance < closest.distance) {
+                    closest = target
+                }
+
+                target.where?.let { pos ->
+                    val marker = markers.getOrPut(entry.key) {
+                        Marker(map).also {
+                            it.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                            map.overlays.add(it)
+                            it.setInfoWindow(null)
+                        }
+                    }
+
+                    marker.position = pos
+                    marker.title = if (target.distance < 15.0) {
+                        "ALERT • ${target.distance.toInt()}m"
+                    } else {
+                        "Beacon • ${target.distance.toInt()}m"
+                    }
+
+                    val iconRes = if (target.distance < 15.0) {
+                        R.drawable.marker_alert
+                    } else {
+                        R.drawable.marker_safe
+                    }
+
+                    marker.icon = ContextCompat.getDrawable(this@MainActivity, iconRes)
+                }
+            }
+
+            status.text = if (closest == null) {
+                "Scanning... nothing detected"
+            } else {
+                "COMET ALERT: ~${closest.distance.toInt()} m (${closest.rssi} dBm)"
+            }
+
+            status.setTextColor(
+                if (closest == null) 0xFF00FF00.toInt() else 0xFFFF4444.toInt()
+            )
+
+            map.invalidate()
+            ui.postDelayed(this, 1000L)
+        }
+    }
+
+    inner class ProximityAudio {
+        @Volatile private var running = false
+        @Volatile private var worker: Thread? = null
+
+        fun start() {
+            if (running) return
+            running = true
+
+            worker = Thread {
+                val rate = 44100
+                var track: AudioTrack? = null
+
+                try {
+                    track = AudioTrack.Builder()
+                        .setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .build()
+                        )
+                        .setAudioFormat(
+                            AudioFormat.Builder()
+                                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                                .setSampleRate(rate)
+                                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                                .build()
+                        )
+                        .setBufferSizeInBytes(
+                            AudioTrack.getMinBufferSize(
+                                rate,
+                                AudioFormat.CHANNEL_OUT_MONO,
+                                AudioFormat.ENCODING_PCM_16BIT
+                            )
+                        )
+                        .setTransferMode(AudioTrack.MODE_STREAM)
+                        .build()
+
+                    track.play()
+
+                    while (running) {
+                        val now = System.currentTimeMillis()
+                        var nearest = Double.MAX_VALUE
+                        for (target in targets.values) {
+                            if (now - target.timestamp <= 6000L && target.distance < nearest) {
+                                nearest = target.distance
+                            }
+                        }
+
+                        if (nearest < 300.0) {
+                            val ratio = (nearest / 300.0).coerceIn(0.0, 1.0)
+                            val freq = 1200.0 - ratio * 600.0
+                            val n = rate * 45 / 1000
+                            val buffer = ShortArray(n) { i ->
+                                (sin(2.0 * PI * freq * i / rate) * Short.MAX_VALUE * 0.6).toInt().toShort()
+                            }
+                            track.write(buffer, 0, buffer.size)
+                            try {
+                                Thread.sleep((50 + ratio * 1150).toLong())
+                            } catch (_: InterruptedException) {
+                                break
+                            }
+                        } else {
+                            try {
+                                Thread.sleep(500L)
+                            } catch (_: InterruptedException) {
+                                break
+                            }
+                        }
+                    }
+                } catch (_: Throwable) {
+                    // ignore audio errors
+                } finally {
+                    try { track?.stop() } catch (_: Throwable) {}
+                    try { track?.release() } catch (_: Throwable) {}
+                    running = false
+                    worker = null
+                }
+            }
+
+            worker?.start()
+        }
+
+        fun stop() {
+            running = false
+            worker?.interrupt()
+            worker = null
+        }
+    }
+}
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <org.osmdroid.views.MapView
+        android:id="@+id/mapView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <TextView
+        android:id="@+id/statusView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:background="#CC000000"
+        android:padding="16dp"
+        android:text="Starting..."
+        android:textColor="#00FF00"
+        android:textSize="15sp" />
+
+</FrameLayout>
+<resources>
+    <color name="safe_green">#22C55E</color>
+    <color name="alert_red">#EF4444</color>
+    <color name="dark_bg">#0F172A</color>
+    <color name="white">#FFFFFF</color>
+</resources>
+<resources>
+    <string name="app_name">Comet Alert</string>
+</resources>
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <solid android:color="#22C55E" />
+    <stroke
+        android:width="3dp"
+        android:color="#FFFFFF" />
+    <size
+        android:width="28dp"
+        android:height="28dp" />
+</shape>
+./gradlew assembleDebug
+app/build/outputs/apk/debug/app-debug.apk
+keytool -genkeypair -v \
+  -keystore app/release-key.jks \
+  -alias cometalert \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000
+export KEYSTORE_PASSWORD=your_store_password
+export KEY_ALIAS=cometalert
+export KEY_PASSWORD=your_key_password
+./gradlew assembleRelease
+app/build/outputs/apk/release/app-release.apk
